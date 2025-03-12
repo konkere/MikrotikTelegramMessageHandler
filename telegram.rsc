@@ -4,11 +4,16 @@
 # https://forummikrotik.ru/viewtopic.php?p=78085#p78085
 # tested on ROS 6.49.17 & 7.16.2
 # updated 2025/01/01
+# Cosmetic modifications by Konkere
+# updated 2025/03/12
+
+:global TlgrmBotID;
+:global TlgrmChatIDlog;
 
 :global scriptTlgrm; # flag of running script: false=in progress, true=idle
 :do {
-  :local botID    "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-  :local myChatID "-XXXXXXXXX"
+  :local botID    $TlgrmBotID;
+  :local myChatID $TlgrmChatIDlog;
   :local broadCast false; # non-addressed reception mode
   :local launchScr true;  # permission to execute scripts
   :local launchFnc true;  # permission to perform functions
@@ -16,9 +21,10 @@
   :local sysInfo   true;  # system information broadcast to Telegram
   :local userInfo  false; # user information broadcast to Telegram
   :local emoList {
-    "cherry"="%F0%9F%8D%92";"smile"="%F0%9F%98%8E";"bell"="%F0%9F%94%94"}
+    "cherry"="%F0%9F%8D%92";"smile"="%F0%9F%98%8E";"bell"="%F0%9F%94%94";"flag"="%0A%F0%9F%9A%A9"}
     # emoji list: https://apps.timwhitlock.info/emoji/tables/unicode
   :local emoDev ($emoList->"cherry"); # device emoji in chat
+  :local emoMessage ($emoList->"flag"); # message emoji in chat
   :global timeAct; # time when the last command was executed
   :global timeLog; # time when the log entries were last sent
 
@@ -254,8 +260,7 @@
 
     # part of script body for notifications in Telegram # https://www.reddit.com/r/mikrotik/comments/onusoj/sending_log_alerts_to_telegram/
     :put "$[$U2T [$T2U]]\t*** Stage of broadcasting to Telegram ***"
-    :local logIDs [/log find topics~"warning" or topics~"error" or topics~"critical" or topics~"caps" or\
-      topics~"wireless" or topics~"dhcp" or topics~"firewall" or message~" logged "]; # list of potentially interesting log entries
+    :local logIDs [/log find topics~"warning" || topics~"critical" || topics~"error" || topics~"firewall"]; # list of potentially interesting log entries
     :local outMsg ""; :local strCnt 0; :local logCnt [:len $logIDs]; # counter of suitable log entries
     :if ([:len $timeLog]=0) do={ # when time of last broadcast in Telegram not found ->
       :put "$[$U2T [$T2U]]\tTime of the last log entry was not found"
@@ -267,6 +272,7 @@
       :do {
         :local tmpTim [/log get [:pick $logIDs $logCnt] time]; # message time in router format
         :set unxTim [$T2U $tmpTim]; :set tmpTim [$U2T $unxTim "time"]; # message time
+        :set tmpTim "$emoMessage $tmpTim%0A"
         :if ($unxTim>$timeLog) do={ # selection of actualing log entries ->
           :local tmpMsg [/log get [:pick $logIDs $logCnt] message]; # message body
           :if ($sysInfo) do={
@@ -286,7 +292,7 @@
         :if ([:len $emoDev]!=0) do={:set emoDev ("$emoDev%20$nameID:")} else={:set emoDev ("$nameID:")}
         :local msgCnt 0; :local lenMsg 4095; # length of Telegram message
         :do {
-          :if ($strCnt=1) do={:set outMsg "$emoDev%20$outMsg"} else={:set outMsg "$emoDev%0A$outMsg"}; # solitary message for pop-up notification on phone
+          :if ($strCnt=1) do={:set outMsg "$outMsg"} else={:set outMsg "$outMsg"}; # solitary message for pop-up notification on phone
           :local bufTxt $outMsg
           :if ([:len $bufTxt]>$lenMsg) do={
             :set bufTxt [:pick $bufTxt 0 $lenMsg]; :set outMsg [:pick $outMsg $lenMsg [:len $outMsg]];
